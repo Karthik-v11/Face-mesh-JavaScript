@@ -1,0 +1,186 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+</head>
+
+<style>
+    .container {
+        position: absolute;
+        background-color: #596e73;
+        width: 100%;
+        max-height: 100%;
+    }
+
+    .input_video {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+
+    }
+
+    .input_image {
+        position: absolute;
+    }
+
+    .canvas-container {
+        display: flex;
+        height: 100%;
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .output_canvas {
+        max-width: 100%;
+        display: block;
+        position: relative;
+        left: 0;
+        top: 0;
+    }
+</style>
+</head>
+
+<body>
+    <a-scene>
+        <div class="container">
+            <video class="input_video"></video>
+            <div class="canvas-container">
+                <canvas class="output_canvas">
+                </canvas>
+            </div>
+        </div>
+        <a-entity id="glass-model" gltf-model="./stereo-glasses" scale="1 1 1" rotation="0 0 0">
+        <a-entity id="occluder" gltf-model="./head-occluder.glb" scale="1 1 1" rotation="0 0 0">
+        </a-entity>
+    </a-scene>
+    <div class="control-panel">
+    </div>
+
+    <script type="module">
+        const controls = window;
+        const drawingUtils = window;
+        const mpFaceDetection = window;
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvasElement = document.getElementsByClassName('output_canvas')[0];
+        const controlsElement = document.getElementsByClassName('control-panel')[0];
+        const canvasCtx = canvasElement.getContext('2d');
+        const model = document.getElementById('glass-model')
+        const occlu = document.getElementById('occluder')
+        // const camera=document.getElementById('camera')
+        const fpsControl = new controls.FPS();
+        // const spinner = document.querySelector('.loading');
+        // spinner.ontransitionend = () => {
+        //     spinner.style.display = 'none';
+        // };
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(
+                results.image, 0, 0, canvasElement.width, canvasElement.height);
+            if (results.multiFaceLandmarks) {
+                for (const landmarks of results.multiFaceLandmarks) {
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION,
+                    //     { color: '#C0C0C070', lineWidth: 1 });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, { color: '#FF3030' });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYEBROW, { color: '#FF3030' });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_IRIS, { color: '#FF3030' });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, { color: '#30FF30' });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYEBROW, { color: '#30FF30' });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_IRIS, { color: '#30FF30' });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, { color: '#E0E0E0' });
+                    // drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, { color: '#E0E0E0' });
+                    // // console.log(FACEMESH_RIGHT_EYE * canvasElement.width)
+                    // console.log(FACEMESH_RIGHT_EYE[0][0])
+
+
+                    console.log(landmarks[168])
+                    // model.setAttribute("position", { x: landmarks[469].x * canvasElement.width, y: -landmarks[469].y * canvasElement.height, z: -landmarks[469].z * 2000 })
+                     model.setAttribute("position", { x: landmarks[168].x * 30, y: -landmarks[168].y * 15, z: landmarks[168].z})
+                     occlu.setAttribute("position", { x: landmarks[168].x * 30, y: -landmarks[168].y * 15, z: landmarks[168].z})
+                }
+                // console.log(results.multiFaceLandmarks[0][477].x)
+            }
+            canvasCtx.restore();
+        }
+
+        const faceMesh = new FaceMesh({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+            }
+        });
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        faceMesh.onResults(onResults);
+
+        new controls
+            .ControlPanel(controlsElement, {
+                selfieMode: true,
+                model: 'short',
+                minDetectionConfidence: 0.5,
+            })
+            .add([
+                new controls.StaticText({ title: 'MediaPipe Face Detection' }),
+                fpsControl,
+                new controls.Toggle({ title: 'Selfie Mode', field: 'selfieMode' }),
+                new controls.SourcePicker({
+                    onSourceChanged: () => {
+                        faceDetection.reset();
+                    },
+                    onFrame: async (input, size) => {
+                        const aspect = size.height / size.width;
+                        let width, height;
+                        if (window.innerWidth > window.innerHeight) {
+                            height = window.innerHeight;
+                            width = height / aspect;
+                        }
+                        else {
+                            width = window.innerWidth;
+                            height = width * aspect;
+                        }
+                        canvasElement.width = width;
+                        canvasElement.height = height;
+                        await faceMesh.send({ image: input });
+                    },
+                    examples: {
+                        images: [],
+                        videos: [],
+                    },
+                }),
+                new controls.Slider({
+                    title: 'Model Selection',
+                    field: 'model',
+                    discrete: { 'short': 'Short-Range', 'full': 'Full-Range' },
+                }),
+                new controls.Slider({
+                    title: 'Min Detection Confidence',
+                    field: 'minDetectionConfidence',
+                    range: [0, 1],
+                    step: 0.01
+                }),
+            ])
+            .on(x => {
+                const options = x;
+                videoElement.classList.toggle('selfie', options.selfieMode);
+                faceMesh.setOptions(options);
+            });
+
+    </script>
+</body>
+
+</html>
